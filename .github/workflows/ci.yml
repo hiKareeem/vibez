@@ -124,3 +124,16 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+      # The browserless engine on Windows is native code (a C++ CDM bridge and a
+      # Media Foundation/waveOut sink), so build and test it the way the release
+      # does: cgo with the MinGW toolchain preinstalled on the runner.
+      - name: Native browserless engine (cgo)
+        shell: bash
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          gcc --version
+          go build ./...
+          go vet ./internal/player/browserless/... ./cmd/...
+          go test -v ./internal/player/browserless/...
