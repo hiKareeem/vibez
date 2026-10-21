@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] — 2026-10-21
+
 ### Added
 - **Automatic Widevine CDM downloader mirroring Firefox** — Vibez now automatically fetches and extracts the official Google Widevine CDM component package directly from Google's CDN if no compatible browser is found on the system. Scans Firefox user profiles on both macOS and Linux for existing CDM installations. Eliminates any requirement to have Google Chrome or any browser installed on the system.
 - **Browserless Apple Music playback on macOS via native Widevine CDM and Core Audio** — extends the browserless audio engine to macOS (Darwin). Uses `libwidevinecdm.dylib` from installed macOS browsers (Google Chrome, Brave, Microsoft Edge, Arc, Firefox) or user cache, combined with native Core Audio (`AudioFileStream` + `AudioQueue`) playback without requiring GStreamer or any external audio packages. Delivers identical low memory footprint (~15 MB) and sub-second startup on macOS.
@@ -739,7 +741,8 @@ First public pre-release of vibez.
 
 ---
 
-[Unreleased]: https://github.com/simonepelosi/vibez/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/simonepelosi/vibez/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/simonepelosi/vibez/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/simonepelosi/vibez/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/simonepelosi/vibez/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/simonepelosi/vibez/compare/v0.9.2...v1.0.0
