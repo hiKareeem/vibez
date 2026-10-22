@@ -9,9 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **Browserless engine is now the sole playback engine across all platforms** — made the native in-process Widevine CDM player the default on Linux, macOS, and Windows and removed the legacy Chrome/CDP (`playwright-go`), WebKitGTK (`webview_go`), and JS local-audio engines along with all embedded HTML/JS player bundles and Node.js/WebKit dependencies. Windows `--local` playback now uses native Media Foundation and `waveOut` with a 10-band equalizer.
+## [2.0.0] — 2026-10-22
 
+### Added
+- **Gapless track transitions on the native browserless engine** — pre-prepares (`webPlayback` + Widevine license + HLS manifest) the next queue item in the background and stages it onto GStreamer `playbin3`/`playbin` via `about-to-finish` + `stream-start` URI handoff, achieving ~50 ms seamless joins without cycling pipeline state.
+- **Cross-platform native audio sink E2E test suite** — exercises real loopback ADTS AAC streaming, 10-band equalizer DSP, volume control, position tracking, and EOS delivery on Linux (GStreamer), macOS (Core Audio), and Windows (Media Foundation).
+
+### Changed
+- **Browserless engine is now the sole playback engine across all platforms (BREAKING)** — made the native in-process Widevine CDM player the default and only Apple Music playback backend on Linux (GStreamer), macOS (Core Audio `AudioFileStream` + `AudioConverter` + `AudioQueue`), and Windows (Media Foundation `IMFSourceReader` + `waveOut`), with a 10-band equalizer on all three platforms.
+- **Direct Apple Music sign-in without MusicKit JS** — `vibez login` now opens `https://authorize.music.apple.com/woa` directly and completes the JSON-RPC `postMessage` handshake without loading `musickit.js` from Apple's CDN.
+- **Native Windows `--local` playback** — replaced the Chrome/Playwright local player on Windows with a native Media Foundation + `waveOut` sink and 10-band peaking biquad equalizer.
+
+### Removed
+- **Removed all browser, WebView, Playwright, and Node.js dependencies** — deleted `internal/player/cdp`, `internal/player/webkit`, `internal/player/web`, `internal/player/local/web`, `playwright-go`, `webview_go`, and `libwebkit2gtk-4.1-dev`. Runtime RAM usage drops from ~250 MB to ~15 MB across all platforms with zero external browser helper processes.
 ## [1.1.2] — 2026-10-21
 
 ### Added
@@ -744,7 +754,8 @@ First public pre-release of vibez.
 
 ---
 
-[Unreleased]: https://github.com/simonepelosi/vibez/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/simonepelosi/vibez/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/simonepelosi/vibez/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/simonepelosi/vibez/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/simonepelosi/vibez/compare/v1.0.0...v1.1.0
