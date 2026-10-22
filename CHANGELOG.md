@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.3] — 2026-10-22
+
+### Fixed
+- **Embedded GStreamer ADTS parser (`vibezaacparse`), HTTP loopback source (`vibezhttpsrc`), and 10-band biquad EQ on Linux** — registers built-in GStreamer fallback elements and DSP when `gstreamer1.0-plugins-good` (`gst-plugins-good` on Arch) is not installed, resolving `gst: Internal data stream error.` during AAC streaming and preserving the 10-band equalizer without external good-plugins dependencies. Closes #188.
+- **Replay and Radio/Discovery auto-advance after queue completion** — reaching the end of the queue with `RepeatModeOff` now stops the sink, resets playback position to `0:00`, restarts from the beginning of the queue when pressing `Play`, and automatically starts the first newly appended track when Radio or Discovery refills an ended queue.
+
 ## [2.0.2] — 2026-10-22
 
 ### Fixed
@@ -765,7 +771,8 @@ First public pre-release of vibez.
 
 ---
 
-[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.3...HEAD
+[2.0.3]: https://github.com/simonepelosi/vibez/compare/v2.0.2...v2.0.3
 [2.0.2]: https://github.com/simonepelosi/vibez/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/simonepelosi/vibez/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/simonepelosi/vibez/compare/v1.1.2...v2.0.0
