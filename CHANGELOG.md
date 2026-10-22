@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-10-22
+
+### Fixed
+- **Zero-silence gapless joins on Linux (GStreamer)** — trims the 2112 AAC encoder priming samples (~48 ms) from whole-track streams via a downstream segment pad probe on the audio filter and pulls subsequent gapless streams back by the accumulated trim offset, eliminating the ~50 ms priming gap across track transitions. Refs #180, #187.
+
 ## [2.0.0] — 2026-10-22
 
 ### Added
@@ -22,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - **Removed all browser, WebView, Playwright, and Node.js dependencies** — deleted `internal/player/cdp`, `internal/player/webkit`, `internal/player/web`, `internal/player/local/web`, `playwright-go`, `webview_go`, and `libwebkit2gtk-4.1-dev`. Runtime RAM usage drops from ~250 MB to ~15 MB across all platforms with zero external browser helper processes.
+
 ## [1.1.2] — 2026-10-21
 
 ### Added
@@ -754,7 +760,8 @@ First public pre-release of vibez.
 
 ---
 
-[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/simonepelosi/vibez/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/simonepelosi/vibez/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/simonepelosi/vibez/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/simonepelosi/vibez/compare/v1.1.0...v1.1.1
