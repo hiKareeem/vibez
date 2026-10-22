@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] — 2026-10-22
+
+### Fixed
+- **Widevine `cenc` decryption failure (`decryption failed with status 4`) on full-sample encrypted streams** — `cdm_context_decrypt` assigned `input.subsamples` to a stack-local `cdm::SubsampleEntry` declared inside the `else` branch when `num_subsamples == 0`, leaving a dangling stack pointer at the `cdm11->Decrypt()` call site. Hoisted `default_subsample` to function scope so it outlives the `Decrypt()` call.
+
 ## [2.0.1] — 2026-10-22
 
 ### Fixed
@@ -760,7 +765,8 @@ First public pre-release of vibez.
 
 ---
 
-[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/simonepelosi/vibez/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/simonepelosi/vibez/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/simonepelosi/vibez/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/simonepelosi/vibez/compare/v1.1.2...v2.0.0
 [1.1.2]: https://github.com/simonepelosi/vibez/compare/v1.1.1...v1.1.2
