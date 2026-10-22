@@ -399,3 +399,84 @@ func TestGaplessStreamStartUsesCommittedURIAfterLateQueueRemoval(t *testing.T) {
 		t.Errorf("nextCandidate after committed removed track = (%d, %q, %v), want (1, \"3\", true)", nextIdx, nextTrack.ID, ok)
 	}
 }
+
+func TestEndOfQueue_PlayRestartsFromBeginning(t *testing.T) {
+	sink := &spySink{}
+	p := &Player{
+		sink: sink,
+		queue: []provider.Track{
+			{ID: "track-1", Title: "Song 1"},
+			{ID: "track-2", Title: "Song 2"},
+		},
+		idx:          1,
+		curStreamURL: "http://127.0.0.1:1234/stream/track-2/tok.aac",
+	}
+	p.state.Track = &p.queue[1]
+	p.state.Playing = true
+	p.state.Position = 180 * time.Second
+
+	sub := p.Subscribe()
+
+	// Reaching the end of the queue with RepeatModeOff stops playback and resets Position to 0.
+	if err := p.Next(); err != nil {
+		t.Fatalf("Next at end of queue: %v", err)
+	}
+	st := <-sub
+	if st.Playing {
+		t.Errorf("after Next at end of queue: Playing = true, want false")
+	}
+	if st.Position != 0 {
+		t.Errorf("after Next at end of queue: Position = %v, want 0", st.Position)
+	}
+	if !p.ended || p.curStreamURL != "" {
+		t.Errorf("after Next at end of queue: ended=%v curStreamURL=%q, want true and empty", p.ended, p.curStreamURL)
+	}
+
+	// Pressing Play after the queue ended restarts from index 0 via playTrack
+	// instead of calling sink.Play() on an exhausted pipeline.
+	if err := p.Play(); err != nil {
+		t.Fatalf("Play after end of queue: %v", err)
+	}
+	st = <-sub
+	if !st.Loading || st.Track == nil || st.Track.ID != "track-1" {
+		t.Errorf("after Play at end of queue: Loading=%v Track=%+v, want Loading=true Track=track-1", st.Loading, st.Track)
+	}
+	if p.QueueIndex() != 0 {
+		t.Errorf("QueueIndex after Play at end of queue = %d, want 0", p.QueueIndex())
+	}
+	if got := sink.plays.Load(); got != 0 {
+		t.Errorf("sink.Play() called %d times on exhausted stream, want 0", got)
+	}
+	if p.playCtx != nil {
+		p.playCtx()
+	}
+}
+
+func TestEndOfQueue_AppendQueueStartsFirstAppendedTrack(t *testing.T) {
+	sink := &spySink{}
+	p := &Player{
+		sink: sink,
+		queue: []provider.Track{
+			{ID: "seed-1", Title: "Seed"},
+		},
+		idx:   0,
+		ended: true,
+	}
+	p.state.Track = &p.queue[0]
+	p.state.Playing = false
+
+	sub := p.Subscribe()
+	if err := p.AppendQueue([]string{"radio-1", "radio-2"}); err != nil {
+		t.Fatalf("AppendQueue: %v", err)
+	}
+	st := <-sub
+	if !st.Loading || st.Track == nil || st.Track.ID != "radio-1" {
+		t.Errorf("after AppendQueue on ended queue: Loading=%v Track=%+v, want Loading=true Track=radio-1", st.Loading, st.Track)
+	}
+	if got := p.QueueIndex(); got != 1 {
+		t.Errorf("QueueIndex = %d, want 1 (first appended track)", got)
+	}
+	if p.playCtx != nil {
+		p.playCtx()
+	}
+}

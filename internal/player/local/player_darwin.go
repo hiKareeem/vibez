@@ -312,6 +312,7 @@ type Player struct {
 	subs       []chan player.State
 	queue      []provider.Track
 	idx        int
+	ended      bool
 	audio      *audioRef
 	sampleRate float64
 	done       chan struct{}
@@ -439,6 +440,7 @@ func (p *Player) playTrack(t provider.Track) {
 	old := p.audio
 	p.sampleRate = sampleRate
 	p.audio = ref
+	p.ended = false
 	p.state.Track = &t
 	p.state.Playing = true
 	p.state.Position = 0
@@ -469,6 +471,16 @@ func (p *Player) playTrack(t provider.Track) {
 
 func (p *Player) Play() error {
 	p.mu.Lock()
+	if (p.ended || p.audio == nil) && len(p.queue) > 0 {
+		if p.ended || p.idx < 0 || p.idx >= len(p.queue) {
+			p.idx = 0
+		}
+		p.ended = false
+		t := p.queue[p.idx]
+		p.mu.Unlock()
+		p.playTrack(t)
+		return nil
+	}
 	ref := p.audio
 	p.state.Playing = true
 	s := p.state
@@ -524,8 +536,10 @@ func (p *Player) Next() error {
 	}
 
 	// RepeatModeOff (stop at the end of queue)
-	if p.state.RepeatMode == player.RepeatModeOff && p.idx == len(p.queue)-1 {
+	if p.state.RepeatMode == player.RepeatModeOff && p.idx >= len(p.queue)-1 {
+		p.ended = true
 		p.state.Playing = false
+		p.state.Position = 0
 		s := p.state
 		p.mu.Unlock()
 		p.broadcast(s)

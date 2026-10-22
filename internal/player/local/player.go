@@ -24,6 +24,7 @@ type Player struct {
 	queue     []provider.Track
 	allTracks []provider.Track
 	idx       int
+	ended     bool
 	done      chan struct{}
 	closeOnce sync.Once
 }
@@ -72,6 +73,7 @@ func (p *Player) playTrack(t provider.Track) {
 	uri := fmt.Sprintf("file://%s", t.ID[len("local:"):])
 	p.gst.PlayURI(uri)
 	p.mu.Lock()
+	p.ended = false
 	p.state.Track = &t
 	p.state.Playing = true
 	p.state.Position = 0
@@ -81,11 +83,21 @@ func (p *Player) playTrack(t provider.Track) {
 }
 
 func (p *Player) Play() error {
-	p.gst.Play()
 	p.mu.Lock()
+	if (p.ended || p.state.Track == nil) && len(p.queue) > 0 {
+		if p.ended || p.idx < 0 || p.idx >= len(p.queue) {
+			p.idx = 0
+		}
+		p.ended = false
+		t := p.queue[p.idx]
+		p.mu.Unlock()
+		p.playTrack(t)
+		return nil
+	}
 	p.state.Playing = true
 	s := p.state
 	p.mu.Unlock()
+	p.gst.Play()
 	p.broadcast(s)
 	return nil
 }
@@ -122,10 +134,13 @@ func (p *Player) Next() error {
 		p.playTrack(t)
 		return nil
 	}
-	if p.state.RepeatMode == player.RepeatModeOff && p.idx == len(p.queue)-1 {
+	if p.state.RepeatMode == player.RepeatModeOff && p.idx >= len(p.queue)-1 {
+		p.ended = true
 		p.state.Playing = false
+		p.state.Position = 0
 		s := p.state
 		p.mu.Unlock()
+		p.gst.Stop()
 		p.broadcast(s)
 		return nil
 	}
@@ -212,9 +227,22 @@ func (p *Player) SetPlaylist(_ string, startIdx int) error {
 
 func (p *Player) AppendQueue(ids []string) error {
 	extra := tracksForIDs(p.allTracks, ids)
+	if len(extra) == 0 {
+		return nil
+	}
 	p.mu.Lock()
+	wasEmpty := len(p.queue) == 0
+	wasEnded := p.ended && !p.state.Playing
+	firstNewIdx := len(p.queue)
 	p.queue = append(p.queue, extra...)
+	if wasEnded {
+		p.idx = firstNewIdx
+		p.ended = false
+	}
 	p.mu.Unlock()
+	if wasEmpty || wasEnded {
+		p.playTrack(extra[0])
+	}
 	return nil
 }
 

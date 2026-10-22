@@ -72,6 +72,7 @@ type Player struct {
 	curStreamURL       string                   // base loopback stream URL for current track
 	seekOffset         time.Duration            // start offset of the current segment after Seek
 	streamErr          string                   // specific cause from onFail for curStream
+	ended              bool                     // queue played through to the end
 	sessionExpiredOnce sync.Once
 	doneCh             chan struct{}
 	closeOnce          sync.Once
@@ -154,6 +155,7 @@ func New(cfg *config.Config, prov *apple.AppleProvider, progress ...func(string)
 			return
 		}
 		p.streamErr = err.Error()
+		p.curStreamURL = ""
 		p.state.Playing = false
 		p.state.Loading = false
 		s := p.state
@@ -170,6 +172,7 @@ func New(cfg *config.Config, prov *apple.AppleProvider, progress ...func(string)
 
 	p.sink.OnError(func(e error) {
 		p.mu.Lock()
+		p.curStreamURL = ""
 		p.state.Playing = false
 		p.state.Loading = false
 		s := p.state
@@ -291,6 +294,7 @@ func (p *Player) handleStreamStart(uri string) {
 	p.state.Error = ""
 	p.streamErr = ""
 	p.seekOffset = 0
+	p.ended = false
 	p.curStream = streamIDFromURL(prep.streamURL)
 	p.curStreamURL = prep.streamURL
 	s := p.state
@@ -379,6 +383,7 @@ func (p *Player) playTrack(t provider.Track) {
 	p.state.Error = ""
 	p.streamErr = ""
 	p.seekOffset = 0
+	p.ended = false
 	p.curStreamURL = ""
 	s := p.state
 	prefer256k := p.state.Bitrate >= 256
@@ -418,6 +423,9 @@ func (p *Player) playTrack(t provider.Track) {
 			}
 		}
 
+		if p.streamer == nil {
+			return
+		}
 		streamURL, duration, err := p.streamer.PrepareTrack(ctx, catalogID, prefer256k)
 		if err != nil {
 			select {
@@ -476,6 +484,7 @@ func (p *Player) playTrack(t provider.Track) {
 		p.curStreamURL = streamURL
 		p.streamErr = ""
 		p.seekOffset = 0
+		p.ended = false
 		p.state.Loading = false
 		p.state.Playing = true
 		if duration > 0 && p.state.Track != nil && p.state.Track.Duration == 0 {
@@ -499,10 +508,11 @@ func (p *Player) Play() error {
 		p.mu.Unlock()
 		return nil
 	}
-	if p.curStreamURL == "" && len(p.queue) > 0 {
-		if p.idx < 0 || p.idx >= len(p.queue) {
+	if (p.curStreamURL == "" || p.ended) && len(p.queue) > 0 {
+		if p.ended || p.idx < 0 || p.idx >= len(p.queue) {
 			p.idx = 0
 		}
+		p.ended = false
 		t := p.queue[p.idx]
 		p.mu.Unlock()
 		p.playTrack(t)
@@ -539,6 +549,8 @@ func (p *Player) Stop() error {
 	}
 	p.cancelPrefetchLocked()
 	p.stagedPreps = nil
+	p.curStreamURL = ""
+	p.ended = false
 	p.state.Playing = false
 	p.state.Loading = false
 	s := p.state
@@ -567,9 +579,16 @@ func (p *Player) Next() error {
 		}
 	case p.state.RepeatMode == player.RepeatModeOff && p.idx >= len(p.queue)-1:
 		p.cancelPrefetchLocked()
+		p.ended = true
+		p.curStreamURL = ""
+		p.seekOffset = 0
 		p.state.Playing = false
+		p.state.Position = 0
 		s := p.state
 		p.mu.Unlock()
+		if p.sink != nil {
+			p.sink.Stop()
+		}
 		p.bcast.Send(s)
 		return nil
 	default:
@@ -593,6 +612,7 @@ func (p *Player) Next() error {
 		p.state.Error = ""
 		p.streamErr = ""
 		p.seekOffset = 0
+		p.ended = false
 		p.curStream = streamIDFromURL(prep.streamURL)
 		p.curStreamURL = prep.streamURL
 		s := p.state
@@ -664,6 +684,7 @@ func (p *Player) Seek(position time.Duration) error {
 
 	p.mu.Lock()
 	p.seekOffset = segOffset
+	p.ended = false
 	p.state.Position = segOffset
 	s := p.state
 	p.mu.Unlock()
@@ -807,10 +828,16 @@ func (p *Player) AppendQueue(ids []string) error {
 
 	p.mu.Lock()
 	wasEmpty := len(p.queue) == 0
+	wasEnded := p.ended && !p.state.Playing && !p.state.Loading
+	firstNewIdx := len(p.queue)
 	p.queue = append(p.queue, tracks...)
+	if wasEnded && len(tracks) > 0 {
+		p.idx = firstNewIdx
+		p.ended = false
+	}
 	p.mu.Unlock()
 
-	if wasEmpty && len(tracks) > 0 {
+	if (wasEmpty || wasEnded) && len(tracks) > 0 {
 		p.playTrack(tracks[0])
 	} else {
 		p.scheduleNextPrefetch()
