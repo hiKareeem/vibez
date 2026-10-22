@@ -400,6 +400,7 @@ int cdm_context_decrypt(
     input.iv = iv;
     input.iv_size = iv_size;
 
+    cdm::SubsampleEntry default_subsample = {0, in_size};
     std::vector<cdm::SubsampleEntry> subs;
     if (num_subsamples > 0 && clear_bytes && cipher_bytes) {
         subs.resize(num_subsamples);
@@ -410,7 +411,6 @@ int cdm_context_decrypt(
         input.subsamples = subs.data();
         input.num_subsamples = num_subsamples;
     } else {
-        cdm::SubsampleEntry default_subsample = {0, in_size};
         input.subsamples = &default_subsample;
         input.num_subsamples = 1;
     }
